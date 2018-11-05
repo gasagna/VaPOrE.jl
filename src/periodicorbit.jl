@@ -4,9 +4,9 @@
 
 import HDF5: write, h5open, attrs
 
-export PeriodicOrbit, dds!, smooth!
+export PeriodicOrbit, dds!, load!, save
 
-# ~~~ A PERIODIC TRAJECTORY ~~~
+# ~ A PERIODIC TRAJECTORY ~
 mutable struct PeriodicOrbit{T, X<:AbstractVector{T}} <: AbstractVector{X}
     u::Vector{X} # solution in relative frame, last point omitted
     ω::Float64   # natural frequency
@@ -27,21 +27,18 @@ function PeriodicOrbit(g, N::Int, x::X, ω::Real, v::Real) where {X}
     return PeriodicOrbit(xs, ω, v)
 end
 
-# ~ indexing interface ~
+# ~ obey AbstractVector interface ~
 @inline Base.getindex(q::PeriodicOrbit, i::Integer) = 
     q.u[mod(i-1, length(q))+1]
 @inline Base.setindex!(q::PeriodicOrbit, val, i::Integer) =
                       (q.u[mod(i-1, length(q))+1] = val; return val)
 
-# ~ obey GMRES interface ~
 Base.size(q::PeriodicOrbit) = (length(q.u), )
 Base.similar(q::PeriodicOrbit) = 
     PeriodicOrbit([similar(q.u[1]) for i = 1:length(q)], 0.0, 0.0)
 Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy.(q.u), q.ω, q.v)
 
-# broadcast, e.g. u .+ 2.*v, this is used for linear algebra, i.e.
-# a PeriodicOrbit is treated as an element of a linear vector space
-# endowed by an inner product, etc
+# ~ broadcasting ~
 @generated function Base.Broadcast.broadcast!(f, q::PeriodicOrbit, args::Vararg{Any, n}) where {n}
     quote 
         $(Expr(:meta, :inline))
@@ -56,7 +53,7 @@ _get_u(q::PeriodicOrbit) = q.u; _get_u(q) = q
 _get_ω(q::PeriodicOrbit) = q.ω; _get_ω(q) = q
 _get_v(q::PeriodicOrbit) = q.v; _get_v(q) = q
 
-# derivative approximation
+# ~ derivative approximation ~
 function dds!(q::PeriodicOrbit{T, X}, i::Int, dqdt::X, order::Int) where {T, X}
     @checkorder order
     dqdt .= 0
@@ -67,21 +64,7 @@ function dds!(q::PeriodicOrbit{T, X}, i::Int, dqdt::X, order::Int) where {T, X}
     return dqdt
 end
 
-function smooth!(q::PeriodicOrbit, α::Real=0.9, rep::Int=1)
-    for i = 1:rep
-        # forward
-        for i = 1:length(q)
-            q[i] .= α .* q[i] .+ (1 .- α) .* q[i-1]
-        end
-        # backward
-        for i = 1:length(q)
-            q[i] .= α .* q[i] .+ (1 .- α) .* q[i+1]
-        end
-    end
-    return q
-end
-
-# save orbit to file
+# ~ save orbit to file ~
 function save(x::PeriodicOrbit, path::String)
     # save to a large matrix
     data = zeros(Float64, length(x[1]), length(x))
@@ -95,6 +78,7 @@ function save(x::PeriodicOrbit, path::String)
     end
 end
 
+# ~ load orbit from file ~
 function load!(::X, fun, path::String) where {X}
     xs = X[]
     h5open(path, "r") do file
