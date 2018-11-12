@@ -64,6 +64,21 @@ function dds!(q::PeriodicOrbit{T, X}, i::Int, dqdt::X, order::Int) where {T, X}
     return dqdt
 end
 
+# simple smoother
+function smooth!(q::PeriodicOrbit, α::Real=0.9, rep::Int=1)
+    for i = 1:rep
+        # forward
+        for i = 1:length(q)
+            q[i] .= α .* q[i] .+ (1 .- α) .* q[i-1]
+        end
+        # backward
+        for i = 1:length(q)
+            q[i] .= α .* q[i] .+ (1 .- α) .* q[i+1]
+        end
+    end
+    return q
+end
+
 # ~ save orbit to file ~
 function save(x::PeriodicOrbit, path::String)
     # save to a large matrix

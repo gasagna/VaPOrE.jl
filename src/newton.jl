@@ -16,7 +16,7 @@ function _residual(x::PeriodicOrbit, F, order::Int)
     end
 end
 
-function nksearch!(q::PeriodicOrbit, order::Int, F, L, D, smoother, opts::Options=Options())
+function nksearch!(q::PeriodicOrbit, order::Int, F, L, D, opts::Options=Options())
     @checkorder order 
 
     # allocate system
@@ -52,7 +52,7 @@ function nksearch!(q::PeriodicOrbit, order::Int, F, L, D, smoother, opts::Option
         update!(sys, q)
 
         # solve system and write to dq
-        smoother(solve!(sys, dq))
+        solve!(sys, dq)
        
         # perform line search
         λ, r_norm, ls_converged = linesearch(F, D,    q,    dq, order,
