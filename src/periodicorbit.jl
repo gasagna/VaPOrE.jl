@@ -38,6 +38,15 @@ Base.similar(q::PeriodicOrbit) =
     PeriodicOrbit([similar(q.u[1]) for i = 1:length(q)], 0.0, 0.0)
 Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy.(q.u), q.ω, q.v)
 
+function Base.dot(q::PeriodicOrbit{T, X}, p::PeriodicOrbit{T, X}) where {T, X}
+    val = mapreduce(Base.splat(dot), +, zip(q, p))/length(q)
+    val += q.ω * p.ω
+    val += q.v * p.v
+    return val
+end
+
+Base.norm(q::PeriodicOrbit) = sqrt(dot(q, q))
+
 # ~ broadcasting ~
 @generated function Base.Broadcast.broadcast!(f, q::PeriodicOrbit, args::Vararg{Any, n}) where {n}
     quote 

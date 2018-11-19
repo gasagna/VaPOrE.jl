@@ -17,3 +17,7 @@ export Options
     ls_maxiter::Int     = 10     # maximum number of line search iterations 
     ls_rho::Float64     = 0.5    # line search step reduction factor
 end
+
+# checks
+# 0 < η < 1/4
+# Δ_max > 0

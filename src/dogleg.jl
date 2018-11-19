@@ -2,116 +2,56 @@
 # Copyright 2017-2018, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
 
-export nksearch!
+function solve_tr_problem!(dq::PeriodicOrbit, cache::Cache, tr_radius::Real)
 
-# function to calculate the negative redidual
-function _residual(x::PeriodicOrbit, F, order::Int)
-    tmp1 = similar(x[1])
-    tmp2 = similar(x[1])
-    function R(out::X, x::PeriodicOrbit{T, X}, i::Int) where {T, X}
-        M, N = length(x), length(x[1])
-            # sys.D isa Void || (sys.b[_blockrng(i, N)] .-= x.v.*sys.D(sys.tmp, x[i]))
-        out .= .- x.ω.*dds!(x, i, tmp1, order) .+ F(0.0, x[i], tmp2)
-        return out
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Compute Newton step first
+    solve_newton!(cache)
+    
+    # If the Newton step is within the trust region return
+    # this point, which is hopefully a good descent step
+    if norm(cache.dq_newton) < tr_radius
+        dq .= cache.dq_newton
+        return false
     end
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # If not compute cauchy point, the minimizer along
+    # the steepest descent direction
+    solve_cauchy!(cache)
+
+    # If the cauchy point if outside the trust region, scale
+    # the step down to hit the trust region boundary
+    if norm(cache.dq_cauchy) > tr_radius
+        dq .= cache.dq_cauchy
+        dq .*= tr_radius ./ norm(cache.dq_cauchy)
+        return true
+    end
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Otherwise compute the intersection of the line segment
+    # between the Cauchy and the Newton points with the trust
+    # region boundary.
+    
+    # First compute difference between Newton and Cauchy points
+    cache.tmp .= cache.dq_newton .- cache.dq_cauchy
+    
+    # then solve quadratic problem
+    τ = _solve_tr_boundary!(cache.dq_cauchy, cache.tmp, tr_radius)
+
+    # and finally compute the intersection point
+    dq .= cache.dq_cauchy .+ τ .* (cache.tmp)
+
+    return true
 end
 
-function nksearch!(q::PeriodicOrbit, order::Int, F, L, D, opts::Options=Options())
-    @checkorder order
-
-    # allocate object for jacobian
-    Jac = Jacobian(q, order, F, L, D, _residual(q, F, order))
-
-    # correction
-    dq = similar(q)
-
-    # temporaries
-    p, dpds, dpdx, f = similar(q), similar(q), similar(q), similar(q)
-
-    # calculate initial error
-    r_norm = calc_r_norm(F, D, q, dq, 0, order, p, dpds, dpdx, f)
-
-    # display status if verbose
-    opts.verbose && display_header()
-    opts.verbose && display_status(0,      # iteration number
-                                   0,      # total norm of correction
-                                   0,      # period correction
-                                   0,      # shift correction
-                                   2π/q.ω, # current period
-                                   q.v,    # current velocity
-                                   r_norm, # error norm after step
-                                   0.0)    # step length
-
-    # convergence status
-    status = :nr_maxiter_reached
-
-    # newton iterations loop
-    for iter = 1:opts.maxiter
-
-        # determine Cauchy point
-        s_CP = cauchy_point()
-
-        if δ < norm(s_CP)
-            # take step along s_CP of length δ
-
-        else
-            # determine Newton point
-            s_N = newton_point()
-
-        end
-
-        # update Jacobian system
-        update!(Jac, q)
-
-        # solve system and write to dq
-        solve!(sys, dq)
-       
-        # perform line search
-        λ, r_norm, ls_converged = linesearch(F, D,    q,    dq, order,
-                                       p, dpds, dpdx, f,  opts)
-
-        if ls_converged == false
-            status = :ls_maxiter_reached
-            break 
-        end
-
-        # apply correction
-        q .+= λ.*dq
-
-        # orbit correction norm
-        du_norm = mean(norm, dq)
-
-        # display status if verbose
-        if opts.verbose && iter % opts.skipiter == 0 
-            display_status(iter,      # iteration number
-                           du_norm,   # total norm of correction
-                          -dq.ω/2π,   # period correction
-                           dq.v,      # velocity correction
-                           2π/q.ω,    # new period
-                           q.v,       # new velocity
-                           r_norm,    # error norm after step
-                           λ)         # optimal step length
-        end
-
-        # any of the tolerances reached
-        if r_norm  < opts.r_tol || du_norm < opts.x_tol
-            status = :converged
-            break
-        end
-    end
-
-    # display status if verbose
-    if opts.verbose
-        display_status(0,         # iteration number
-                       0,         # total norm of correction
-                       0,         # period correction
-                       0,         # velocity correction
-                       2π/q.ω,    # new period
-                       q.v,       # new shift
-                       r_norm,    # error norm after step
-                       0)         # optimal step length
-    end
-
-    # return input
-    return q, status
+# Solve for the largest τ such that ||q + τ*p||^2 = tr_radius^2
+function _solve_tr_boundary!(q, p, tr_radius::Real)
+    # compute coefficients of the quadratic equation
+    a = norm(p)^2
+    b = 2*dot(p, q)
+    c = norm(q)^2 - tr_radius^2
+    # compute discriminant and then return positive (largest) root
+    sq_discr = sqrt(b^2 - 4*a*c)
+    return max(- b + sq_discr, - b - sq_discr)/2a
 end

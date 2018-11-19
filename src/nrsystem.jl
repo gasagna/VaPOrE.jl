@@ -2,12 +2,24 @@
 # Copyright 2017-2018, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
 
-export NRSystem, solve!, update!
+# function to calculate the negative redidual
+function calc_neg_residual!(r::PeriodicOrbit{T, X},
+                            F,
+                            order::Int,
+                            q::PeriodicOrbit{T, X},
+                            tmp1::X, tmp2::X) where {T, X}
+    # make sure we do not do shit!
+    @checkorder order
+    for i = 1:length(q)
+        r[i] .= .- q.ω.*dds!(q, i, tmp1, order) .+ F(0.0, q[i], tmp2)
+    end
+    return r
+end
 
 # global row indices of the i-th block (one-based)
 @inline _blockrng(i::Integer, N::Integer) = ((i-1)*N+1):(i*N)
 
-struct NRSystem{T, X, FT, LT, DT, RT}
+struct Cache{T, X, FT, LT, DT, RT}
     A::SparseMatrixCSC{T, Int}
     b::Vector{T}
     tmp::X
@@ -18,12 +30,14 @@ struct NRSystem{T, X, FT, LT, DT, RT}
     D::DT
     R::RT
     order::Int
-    function NRSystem(x::PeriodicOrbit{T, X}, order::Int, F, L, D, R) where {T, X}
+    dq_newton::X
+    dq_cauchy::X
+    function Cache(q::PeriodicOrbit{T, X}, order::Int, F, L, D, R) where {T, X}
         # check order
         @checkorder order
 
         # get problem size
-        M, N = length(x), length(x[1])
+        M, N = length(q), length(q[1])
 
         # preallocate the diagonals, to speed up filling
         c = div(order, 2)
@@ -37,8 +51,8 @@ struct NRSystem{T, X, FT, LT, DT, RT}
         # precompute differentiation matrix from the operator D
         diffmat = zeros(T, N, N)
         if !(D isa Void)
-            tmp1 = similar(x[1])
-            tmp2 = similar(x[1])
+            tmp1 = similar(q[1])
+            tmp2 = similar(q[1])
             tmp1 .= 0
             for i = 1:N
                 tmp1[i] = 1
@@ -51,81 +65,105 @@ struct NRSystem{T, X, FT, LT, DT, RT}
         # instantiate
         new{T, X, typeof(F), typeof(L), typeof(D), typeof(R)}(
             A, zeros(T, M*N+d),
-            similar(x[1]),
+            similar(q[1]),
             zeros(T, N, N), diffmat, F, L, D, R, order)
     end
 end
 
-# update Newton-Raphson matrix with current guess
-function update!(sys::NRSystem, x::PeriodicOrbit)
+function update!(c::Cache, q::PeriodicOrbit)
     # get problem size
-    M, N = length(x), length(x[1])
+    M, N = length(q), length(q[1])
 
-    # UDPATE LHS
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # CALCULATE THE NEGATIVE RESIDUAL
+    calc_neg_r(c.neg_r, c.F, c.order, q, c.tmp1, c.tmp2)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # UDPATE LHS OF NEWTON SYSTEM
     @inbounds begin
 
         # time derivative term
-        ds = 2π/length(x)
+        ds = 2π/length(q)
         for (j, c) in enumerate(_coeffs[sys.order])
-            sys.A[diagind(sys.A,      j*N)] .= +c .* x.ω ./ ds
-            sys.A[diagind(sys.A,     -j*N)] .= -c .* x.ω ./ ds
-            sys.A[diagind(sys.A,  (M-j)*N)] .= -c .* x.ω ./ ds
-            sys.A[diagind(sys.A, -(M-j)*N)] .= +c .* x.ω ./ ds
+            c.A[diagind(c.A,      j*N)] .= +c .* q.ω ./ ds
+            c.A[diagind(c.A,     -j*N)] .= -c .* q.ω ./ ds
+            c.A[diagind(c.A,  (M-j)*N)] .= -c .* q.ω ./ ds
+            c.A[diagind(c.A, -(M-j)*N)] .= +c .* q.ω ./ ds
         end
 
         # clear last rows/cols
-        sys.A[end, :] .= 0
-        sys.A[:, end] .= 0
+        c.A[end, :] .= 0
+        c.A[:, end] .= 0
         
         # diagonal block
         for i in 1:M
             # diagonal blocks
-            sys.A[_blockrng(i, N), _blockrng(i, N)] .= .-sys.L(sys.TMP, x[i])
+            c.A[_blockrng(i, N), _blockrng(i, N)] .= .-c.L(c.TMP, q[i])
 
-            if !(sys.D isa Void)
+            if !(c.D isa Void)
                 # diagonal term associate to v
-                sys.A[_blockrng(i, N), _blockrng(i, N)] .+= x.v .* sys.diffmat
+                c.A[_blockrng(i, N), _blockrng(i, N)] .+= q.v .* c.diffmat
 
                 # right column term associated to v'
-                sys.A[_blockrng(i, N), end-1] .= sys.D(sys.tmp, x[i])
+                c.A[_blockrng(i, N), end-1] .= c.D(c.tmp, q[i])
             end
 
             # term associated to ω'
-            sys.A[_blockrng(i, N),  end] .= dds!(x, i, sys.tmp, sys.order)
+            c.A[_blockrng(i, N),  end] .= dds!(q, i, c.tmp, c.order)
         end
 
         # now add phase locking constraints
-        sys.D isa Void || (sys.A[end-1, _blockrng(1, N)] = sys.D(sys.tmp, x[1]))
-        sys.A[end, _blockrng(1, N)] .= sys.F(0.0, x[1], sys.tmp)
-
-        # UPDATE RHS with negative residual
-        for i in 1:M
-            sys.b[_blockrng(i, N)] .= sys.R(sys.tmp, x, i)
-        end
-        
-        # set last bits to zero
-        sys.D isa Void || (sys.b[end-1] = 0)
-        sys.b[end] = 0
+        c.D isa Void || (c.A[end-1, _blockrng(1, N)] = c.D(c.tmp, q[1]))
+        c.A[end, _blockrng(1, N)] .= c.F(0.0, q[1], c.tmp)
     end
 
-    return sys
+    return nothing
 end
 
-function solve!(sys::NRSystem, x::PeriodicOrbit)
-    # solve system in place
-    A_ldiv_B!(lufact(sys.A), sys.b)
-
+# Solve newton step
+function solve_newton!(c::Cache)
     # get problem size
-    M, N = length(x), length(x[1])
+    M, N = length(c.dq_newton), length(c.dq_newton[1])
 
-    # now copy to x
+    # set negative residual into the b vector
     for i in 1:M
-        x[i] .= sys.b[_blockrng(i, N)]
+        c.b[_blockrng(i, N)] .= c.neg_r[i]
     end
     
-    # and the other bits
-    sys.D isa Void || (x.v = sys.b[end-1])
-    x.ω = sys.b[end]
+    # set last bits to zero
+    c.D isa Void || (c.b[end-1] = 0)
+    c.b[end] = 0
 
-    return x
+    # solve Newton system
+    A_ldiv_B!(lufact(c.A), c.b)
+
+    # now copy to dq_newton
+    for i in 1:length(c.dq_newton)
+        c.dq_newton[i] .= c.b[_blockrng(i, N)]
+    end
+    
+    # and the other bits too
+    c.D isa Void || (c.dq_newton.v = c.b[end-1])
+    c.dq_newton.ω = c.b[end]
+
+    return nothing
+end
+
+
+function solve_cauchy!(cache::Cache)
+    # calc residual
+    cache.r 
+
+    mul!(cache.grad, cache.G_adj, cache.res)
+
+    # now compute denominator bit
+    mul!(cache.tmp, cache.G, cache.grad)
+
+    # this is the cauchy step length
+    λᵒ = (norm(cache.grad)/norm(cache.tmp))^2
+
+    # obtain the cauchy length
+    cache.dq_cauchy .= λᵒ .* cache.grad
+
+    return nothing
 end
