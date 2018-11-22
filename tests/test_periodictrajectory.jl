@@ -1,7 +1,3 @@
-using BenchmarkTools
-using Base.Test
-using VaPOrE
-
 @testset "PeriodicTrajectory                          " begin
     @testset "constructor                        " begin
         @test_throws ArgumentError PeriodicTrajectory([[1], [2], [3]], 1)
