@@ -3,10 +3,10 @@ using Base.Test
 using VaPOrE
 
 @testset "PeriodicTrajectory                          " begin
-    @testset "constructor                         " begin
+    @testset "constructor                        " begin
         @test_throws ArgumentError PeriodicTrajectory([[1], [2], [3]], 1)
     end
-    @testset "periodic indexing                         " begin
+    @testset "periodic indexing                  " begin
         u = PeriodicTrajectory([[1], [2], [3]], 2)
         @test u[-1] == [2]
         @test u[ 0] == [3]
@@ -50,4 +50,4 @@ using VaPOrE
             end
         end
     end
-end 
+end
