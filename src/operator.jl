@@ -30,13 +30,10 @@ function Base.At_mul_B!(out::PeriodicOrbit{U},
     out.ω = 0
     out.v = 0
     for i = 1:M
-        # calc last row by calculating the dot product manuallly
+        # calculate the dot product manuallly
         out.ω += dot(dds!(op.q.u, i, op.tmp[2]), r[i])/M
-        
-        # calc top row
         out.u[i] .= (.- op.q.ω .* dds!(r, i, op.tmp[1])
                      .- op.L⁺(0.0, op.q.u[i], r[i], op.tmp[2]) )
-       
     end
     return out
 end
