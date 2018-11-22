@@ -4,113 +4,66 @@
 
 import HDF5: write, h5open, attrs
 
-export PeriodicOrbit, dds!, load!, save
+export PeriodicOrbit, load!, save
 
-# ~ A PERIODIC TRAJECTORY ~
-mutable struct PeriodicOrbit{T, X<:AbstractVector{T}} <: AbstractVector{X}
-    u::Vector{X} # solution in relative frame, last point omitted
-    ω::Float64   # natural frequency
-    v::Float64   # relative velocity
+# ~ A PERIODIC TRAJECTORY, PLUS FREQUENCY AND RELATIVE VELOCITY ~
+mutable struct PeriodicOrbit{U<:PeriodicTrajectory, N}
+     u::U                  # solution in relative frame
+    ds::NTuple{N, Float64} # natural frequency and optionally relative velocity
+    PeriodicOrbit(u::U, ω::Real, v::Real) where {U<:PeriodicTrajectory} =
+        new{U, 2}(u, Float64.(ω, v))
+    PeriodicOrbit(u::U, ω::Real) where {U<:PeriodicTrajectory} =
+        new{U, 1}(u, Float64.(ω,))
 end
 
-# ~ outer constructors ~
-PeriodicOrbit(data::Vector{<:AbstractVector}, ω::Real, v::Real) =
-    PeriodicOrbit{eltype(data[1]),
-                  eltype(data)}(data, ω, v)
+# ~ OBEY ABSTRACTVECTOR INTERFACE ~
+Base.similar(q::PeriodicOrbit) = PeriodicOrbit(similar(q.u), zero.(q.ds))
+Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy(q.u), copy.(q.ds))
 
-# build from discrete forward map and initial condition
-function PeriodicOrbit(g, N::Int, x::X, ω::Real, v::Real) where {X}
-    xs = X[copy(x)]
-    for i = 1:N-1
-        push!(xs, g(copy(xs[end])))
-    end
-    return PeriodicOrbit(xs, ω, v)
-end
-
-# ~ obey AbstractVector interface ~
-@inline Base.getindex(q::PeriodicOrbit, i::Integer) = 
-    q.u[mod(i-1, length(q))+1]
-@inline Base.setindex!(q::PeriodicOrbit, val, i::Integer) =
-                      (q.u[mod(i-1, length(q))+1] = val; return val)
-
-Base.size(q::PeriodicOrbit) = (length(q.u), )
-Base.similar(q::PeriodicOrbit) = 
-    PeriodicOrbit([similar(q.u[1]) for i = 1:length(q)], 0.0, 0.0)
-Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy.(q.u), q.ω, q.v)
-
-function Base.dot(q::PeriodicOrbit{T, X}, p::PeriodicOrbit{T, X}) where {T, X}
-    val = mapreduce(Base.splat(dot), +, zip(q, p))/length(q)
-    val += q.ω * p.ω
-    val += q.v * p.v
-    return val
-end
+Base.dot(q::PO, p::PO) where {PO<:PeriodicOrbit} =
+    dot(q.u, p.u) + sum(q.ds .+ p.ds)
 
 Base.norm(q::PeriodicOrbit) = sqrt(dot(q, q))
 
-# ~ broadcasting ~
-@generated function Base.Broadcast.broadcast!(f, q::PeriodicOrbit, args::Vararg{Any, n}) where {n}
+# ~ BROADCASTING ~
+@generated function Base.Broadcast.broadcast!(f,
+                                              q::PeriodicOrbit,
+                                              args::Vararg{Any, n}) where {n}
     quote 
         $(Expr(:meta, :inline))
-        broadcast!(f, q.u, map(_get_u, args)...)
-        q.ω = broadcast(f, map(_get_ω, args)...)
-        q.v = broadcast(f, map(_get_v, args)...)
+        broadcast!(f, q.u,  map(_get_u, args)...)
+        q.ds = broadcast(f, map(_get_ds, args)...)
         return q
     end
 end
 
 _get_u(q::PeriodicOrbit) = q.u; _get_u(q) = q
-_get_ω(q::PeriodicOrbit) = q.ω; _get_ω(q) = q
-_get_v(q::PeriodicOrbit) = q.v; _get_v(q) = q
+_get_ds(q::PeriodicOrbit) = q.ds; _get_ds(q) = q
 
-# ~ derivative approximation ~
-function dds!(q::PeriodicOrbit{T, X}, i::Int, dqdt::X, order::Int) where {T, X}
-    @checkorder order
-    dqdt .= 0
-    for (j, c) in enumerate(_coeffs[order])
-        dqdt .+= c.*q[i+j] .- c.*q[i-j]
-    end
-    dqdt ./= (2π./length(q))
-    return dqdt
-end
 
-# simple smoother
-function smooth!(q::PeriodicOrbit, α::Real=0.9, rep::Int=1)
-    for i = 1:rep
-        # forward
-        for i = 1:length(q)
-            q[i] .= α .* q[i] .+ (1 .- α) .* q[i-1]
-        end
-        # backward
-        for i = 1:length(q)
-            q[i] .= α .* q[i] .+ (1 .- α) .* q[i+1]
-        end
-    end
-    return q
-end
-
-# ~ save orbit to file ~
-function save(x::PeriodicOrbit, path::String)
-    # save to a large matrix
-    data = zeros(Float64, length(x[1]), length(x))
-    for (i, xi) in enumerate(x)
-        data[:, i] .= xi
+# ~ HDF5 IO ~
+function save(q::PeriodicOrbit, path::String)
+    # save trajectory to a large matrix first
+    data = zeros(Float64, length(q.u[1]), length(q.u))
+    for (i, qi) in enumerate(q.u)
+        data[:, i] .= qi
     end
     h5open(path, "w") do file
-        write(file, "x", data)
-        attrs(file)["omega"] = x.ω
-        attrs(file)["v"] = x.v
+        write(file, "q", data)
+        for i = 1:length(q.ds)
+            attrs(file)["ds_$i"] = q.ds[i]
+        end
     end
 end
 
-# ~ load orbit from file ~
-function load!(::X, fun, path::String) where {X}
+function load!(x::X, fun, path::String) where {X}
     xs = X[]
     h5open(path, "r") do file
-        data = read(file, "x")
+        data = read(file, "q")
         for i = 1:size(data, 2)
             push!(xs, fun(data[:, i]))
         end
-        return PeriodicOrbit(xs, read(attrs(file)["omega"]),
-                                 read(attrs(file)["v"]))
+        ds = ntuple(i->attrs(file)["ds_$i"], length(attrs(file)))
+        return PeriodicOrbit(PeriodicTrajectory(xs), ds...)
     end
 end
