@@ -7,28 +7,30 @@ import HDF5: write, h5open, attrs
 export PeriodicOrbit, load!, save
 
 # ~ A PERIODIC TRAJECTORY, PLUS FREQUENCY AND RELATIVE VELOCITY ~
-mutable struct PeriodicOrbit{U<:PeriodicTrajectory, N}
-     u::U                  # solution in relative frame
-    ds::NTuple{N, Float64} # natural frequency and optionally relative velocity
-    PeriodicOrbit(u::U, ω::Real, v::Real) where {U<:PeriodicTrajectory} =
-        new{U, 2}(u, Float64.(ω, v))
-    PeriodicOrbit(u::U, ω::Real) where {U<:PeriodicTrajectory} =
-        new{U, 1}(u, Float64.(ω,))
+# The parameter U is the space-time function space over which 
+# a periodic orbit is defined, while the parameter NS is the
+# number of continuous symmetries of the problem, i.e. time plus
+# optionally a spatial shift
+mutable struct PeriodicOrbit{U<:StateSpaceLoop, NS}
+     u::U                   # solution in relative frame
+    ds::NTuple{NS, Float64} # natural frequency and optionally relative velocity
+    PeriodicOrbit(u::U, ω::Real, v::Real) where {U<:StateSpaceLoop} =
+        new{U, 2}(u, (Float64(ω), Float64(v)))
+    PeriodicOrbit(u::U, ω::Real) where {U<:StateSpaceLoop} =
+        new{U, 1}(u, (Float64(ω),))
 end
 
 # ~ OBEY ABSTRACTVECTOR INTERFACE ~
-Base.similar(q::PeriodicOrbit) = PeriodicOrbit(similar(q.u), zero.(q.ds))
-Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy(q.u), copy.(q.ds))
+Base.similar(q::PeriodicOrbit) = PeriodicOrbit(similar(q.u), zero.(q.ds)...)
+Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy(q.u), copy.(q.ds)...)
 
 Base.dot(q::PO, p::PO) where {PO<:PeriodicOrbit} =
-    dot(q.u, p.u) + sum(q.ds .+ p.ds)
+    dot(q.u, p.u) + sum(q.ds .* p.ds)
 
 Base.norm(q::PeriodicOrbit) = sqrt(dot(q, q))
 
 # ~ BROADCASTING ~
-@generated function Base.Broadcast.broadcast!(f,
-                                              q::PeriodicOrbit,
-                                              args::Vararg{Any, n}) where {n}
+@generated function Base.Broadcast.broadcast!(f, q::PeriodicOrbit, args...)
     quote 
         $(Expr(:meta, :inline))
         broadcast!(f, q.u,  map(_get_u, args)...)
@@ -64,6 +66,6 @@ function load!(x::X, fun, path::String) where {X}
             push!(xs, fun(data[:, i]))
         end
         ds = ntuple(i->attrs(file)["ds_$i"], length(attrs(file)))
-        return PeriodicOrbit(PeriodicTrajectory(xs), ds...)
+        return PeriodicOrbit(StateSpaceLoop(xs), ds...)
     end
 end

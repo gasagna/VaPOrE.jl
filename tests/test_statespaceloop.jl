@@ -1,4 +1,4 @@
-@testset "StateSpaceLoop                          " begin
+@testset "StateSpaceLoop                         " begin
     @testset "constructor                        " begin
         @test_throws ArgumentError StateSpaceLoop([[1], [2], [3]], 1)
     end

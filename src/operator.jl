@@ -2,38 +2,41 @@
 # Copyright 2017-2018, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
 
-struct _Operator{LT, L⁺T, X, H}
-    L::LT
-    L⁺::L⁺T
-    q::H
+# The operator `J` appearing in the variational approach
+struct _Operator{DT, AT, X, H}
+    D::DT # linearised system operator
+    A::AT # adjoint of the linearised system operator
+    q::H  # current orbit around which linearisation is taken
     tmp::Tuple{X, X, X}
-    _Operator(L, L⁺, q::H) where {H<:PeriodicOrbit} =
-        new{typeof(L), typeof(L⁺),
-            typeof(q.u[1]), H}(L, L⁺, q, ntuple(i->similar(q.u[1]), 3))
+    _Operator(D, A, q::H) where {H<:PeriodicOrbit} =
+        new{typeof(D), typeof(A),
+            typeof(q.u[1]), H}(D, A, q, ntuple(i->similar(q.u[1]), 3))
 end
 
+# Application of the operator
 function Base.A_mul_B!(out::U,
                         op::_Operator,
-                         p::PeriodicOrbit{U}) where {U<:PeriodicTrajectory}
-    for i = 1:length(out)
-        out[i] .= (  op.q.ω .* dds!(   p.u, i, op.tmp[1])
-                   .+   p.ω .* dds!(op.q.u, i, op.tmp[2])
-                   .- op.L(0.0, op.q.u[i],    p.u[i], op.tmp[3]) )
+                         p::PeriodicOrbit{U, 1}) where {M, U<:StateSpaceLoop{M}}
+    for i = 1:M
+        out[i] .= (  op.q.ds[1] .* dds!(   p.u, i, op.tmp[1])
+                   .+   p.ds[1] .* dds!(op.q.u, i, op.tmp[2])
+                   .- op.D(0.0, op.q.u[i], p.u[i], op.tmp[3]) )
     end
     return out
 end
 
-function Base.At_mul_B!(out::PeriodicOrbit{U},
+# And of its adjoint
+function Base.At_mul_B!(out::PeriodicOrbit{U, 1},
                          op::_Operator,
-                         r::U) where {U<:PeriodicTrajectory}
-    M = length(r)
-    out.ω = 0
-    out.v = 0
+                          r::U) where {M, U<:StateSpaceLoop{M}, 1}
+    # initialise to a zero of appropriate arithmetic type
+    ds1 = zero(dot(dds!(op.q.u, 1, op.tmp[2]), r[1])/M)
     for i = 1:M
         # calculate the dot product manuallly
-        out.ω += dot(dds!(op.q.u, i, op.tmp[2]), r[i])/M
-        out.u[i] .= (.- op.q.ω .* dds!(r, i, op.tmp[1])
-                     .- op.L⁺(0.0, op.q.u[i], r[i], op.tmp[2]) )
+        ds1 += dot(dds!(op.q.u, i, op.tmp[2]), r[i])/M
+        out.u[i] .= (.- op.q.ds[1] .* dds!(r, i, op.tmp[1])
+                     .- op.A(0.0, op.q.u[i], r[i], op.tmp[2]) )
     end
+    out.ds = (ds1, )
     return out
 end
