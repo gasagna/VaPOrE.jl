@@ -28,7 +28,7 @@ end
 # And of its adjoint
 function Base.At_mul_B!(out::PeriodicOrbit{U, 1},
                          op::_Operator,
-                          r::U) where {M, U<:StateSpaceLoop{M}, 1}
+                          r::U) where {M, U<:StateSpaceLoop{M}}
     # initialise to a zero of appropriate arithmetic type
     ds1 = zero(dot(dds!(op.q.u, 1, op.tmp[2]), r[1])/M)
     for i = 1:M
