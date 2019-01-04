@@ -7,12 +7,11 @@ module VaPOrE
 
 include("output.jl")
 include("options.jl")
-include("fd.jl")
+include("statespaceloop.jl")
 include("periodicorbit.jl")
-include("adjoint.jl")
-include("sensitivity.jl")
-include("nrsystem.jl")
-include("linesearch.jl")
+include("operator.jl")
+include("cache.jl")
+include("dogleg.jl")
 include("newton.jl")
 
 end

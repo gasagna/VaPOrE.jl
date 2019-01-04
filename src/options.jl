@@ -9,15 +9,12 @@ export Options
 # ~~~ SEARCH OPTIONS FOR NEWTON ITERATIONS ~~~
 
 @with_kw struct Options
-    maxiter::Int        = 10     # maximum newton iteration number
-    skipiter::Int       = 1      # skip iteration between displays
-    verbose::Bool       = true   # print iteration status
-    x_tol::Float64      = 1e-10  # tolerance on initial state correction
-    r_tol::Float64      = 1e-10  # tolerance on initial state correction
-    ls_maxiter::Int     = 10     # maximum number of line search iterations 
-    ls_rho::Float64     = 0.5    # line search step reduction factor
+    maxiter::Int              = 10     # maximum newton iteration number
+    skipiter::Int             = 1      # skip iteration between displays
+    verbose::Bool             = true   # print iteration status
+    dq_norm_tol::Float64      = 1e-7   # tolerance on initial state correction
+    r_norm_tol::Float64       = 1e-7   # tolerance on initial state correction
+    init_Δ::Float64           = 1      # initial trust region radius
+    max_Δ::Float64            = 10^8   #
+    η::Float64                = 1/4
 end
-
-# checks
-# 0 < η < 1/4
-# Δ_max > 0

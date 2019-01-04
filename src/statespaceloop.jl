@@ -34,7 +34,7 @@ function StateSpaceLoop(g, M::Int, x::X) where {X}
 end
 
 # private
-_order(u::StateSpaceLoop{M, ORDER}) where {M, ORDER} = ORDER
+order(u::StateSpaceLoop{M, ORDER}) where {M, ORDER} = ORDER
 
 # ~ OBEY ABSTRACTVECTOR INTERFACE ~
 @inline Base.@propagate_inbounds function Base.getindex(u::StateSpaceLoop{M},
@@ -51,8 +51,8 @@ end
 @inline Base.length(u::StateSpaceLoop{M}) where {M} = M
 @inline Base.size(u::StateSpaceLoop{M}) where {M} = (M, )
 
-Base.similar(u::StateSpaceLoop) = StateSpaceLoop(similar.(u._data), _order(u))
-Base.copy(u::StateSpaceLoop) = StateSpaceLoop(copy.(u._data), _order(u))
+Base.similar(u::StateSpaceLoop) = StateSpaceLoop(similar.(u._data), order(u))
+Base.copy(u::StateSpaceLoop) = StateSpaceLoop(copy.(u._data), order(u))
 
 Base.dot(u::U, v::U) where {U <: StateSpaceLoop} =
     mapreduce(args->dot(args...), +, zip(u, v))/length(u)
