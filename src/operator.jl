@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------- #
 # Copyright 2017-2018, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
+import LinearAlgebra
 
 # The operator `J` appearing in the variational approach
 struct _Operator{DT, AT, DXT, X, H}
@@ -18,9 +19,9 @@ struct _Operator{DT, AT, DXT, X, H}
 end
 
 # Application of the operator
-function Base.A_mul_B!(out::U,
-                        op::_Operator{DT, AT, Void},
-                         p::PeriodicOrbit{U, 1}) where {DT, AT, M, U<:StateSpaceLoop{M}}
+function LinearAlgebra.mul!(out::U,
+                             op::_Operator{DT, AT, Nothing},
+                              p::PeriodicOrbit{U, 1}) where {DT, AT, M, U<:StateSpaceLoop{M}}
     for i = 1:M
         out[i] .= (  op.q.ds[1] .* dds!(   p.u, i, op.tmp[1])
                    .+   p.ds[1] .* dds!(op.q.u, i, op.tmp[2])
@@ -30,9 +31,9 @@ function Base.A_mul_B!(out::U,
 end
 
 # And of its adjoint
-function Base.At_mul_B!(out::PeriodicOrbit{U, 1},
-                         op::_Operator{DT, AT, Void},
-                          r::U) where {DT, AT, M, U<:StateSpaceLoop{M}}
+function LinearAlgebra.mul!(out::PeriodicOrbit{U, 1},
+                             op::_Operator{DT, AT, Nothing},
+                              r::U, ::ADJOINT) where {DT, AT, M, U<:StateSpaceLoop{M}}
     # initialise to a zero of appropriate arithmetic type
     ds1 = zero(dot(dds!(op.q.u, 1, op.tmp[2]), r[1])/M)
     for i = 1:M

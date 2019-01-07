@@ -1,6 +1,3 @@
-using VaPOrE
-using Base.Test
-
 # Problem from section 4 in Viswanath 2001
 # ẋ = -y + μx(1 - √(x² + y²))
 # ẏ =  x + μy(1 - √(x² + y²))
@@ -39,23 +36,25 @@ function (s::SystemLinear{ISADJOINT})(t, x, v, out) where {ISADJOINT}
     @inbounds s.J[1, 2] = -1 - μ*x_*y_/r
     @inbounds s.J[2, 1] =  1 - μ*x_*y_/r
     @inbounds s.J[2, 2] = μ*(1 - r - y_^2/r)
-    return ISADJOINT ? At_mul_B!(out, s.J, v) : A_mul_B!(out, s.J, v)
+    return ISADJOINT ? mul!(out, transpose(s.J), v) : mul!(out, s.J, v)
 end
 
-# define systems
-μ = 1.0
-F = System(μ)
-D = SystemLinear{false}(μ)
-A = SystemLinear{true}(μ);
+@testset "simple search                          " begin
+    # define systems
+    μ = 1.0
+    F = System(μ)
+    D = SystemLinear{false}(μ)
+    A = SystemLinear{true}(μ);
 
-# define initial guess, a slightly perturbed orbit
-M = 50
-ts = linspace(0, 2π, M+1)[1:end-1]
-q = PeriodicOrbit(StateSpaceLoop([1.7*[cos(t), sin(t)] for t in ts], 8), 5);
+    # define initial guess, a slightly perturbed orbit
+    M = 50
+    ts = range(0, stop=2π, length=M+1)[1:end-1]
+    q = PeriodicOrbit(StateSpaceLoop([1.7*[cos(t), sin(t)] for t in ts], 8), 5);
 
-# search
-search!(q, F, D, A, Options(maxiter=15, r_norm_tol=1e-14))
+    # search
+    search!(q, F, D, A, Options(maxiter=15, r_norm_tol=1e-14, verbose=false))
 
-# solution is a loop of unit radius and with \omega = 1
-@test maximum( norm.(q.u) - 1 ) < 1e-10
-@test abs(q.ds[1] - 1 ) < 1e-10
+    # solution is a loop of unit radius and with \omega = 1
+    @test maximum( map(el->norm(el)-1, q.u) ) < 1e-10
+    @test abs(q.ds[1] - 1 ) < 1e-10
+end

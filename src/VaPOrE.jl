@@ -5,6 +5,11 @@
 # VAriational Periodic ORbit findEr
 module VaPOrE
 
+# tag to trigger the adjoint calculation
+struct ADJOINT end
+
+export ADJOINT
+
 include("output.jl")
 include("options.jl")
 include("statespaceloop.jl")

@@ -1,6 +1,8 @@
 # ------------------------------------------------------------------- #
 # Copyright 2017-2018, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
+import SparseArrays: SparseMatrixCSC, spdiagm, diagind
+import LinearAlgebra: lu, ldiv!, mul!
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES
@@ -29,7 +31,7 @@ op_apply_eye!(out::Matrix{T}, op, tmp::X) where {T, X<:AbstractVector{T}} =
     op_apply_eye!(out, args->op(args[2]), nothing, tmp)
 
 # In case we pass nothing as op, we do nothing
-op_apply_eye!(out::Matrix{T}, op::Void, tmp::X) where {T, X<:AbstractVector{T}} = out
+op_apply_eye!(out::Matrix{T}, op::Nothing, tmp::X) where {T, X<:AbstractVector{T}} = out
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,8 +70,8 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Preallocate diagonals of the sparse matrix to speed up filling
         idxs = tuple(-div(ORDER, 2)*N:div(ORDER, 2)*N...)
-        vecs = ntuple(i->zeros(T, M*N-abs(idxs[i])), length(idxs))
-        A    = spdiagm(vecs, idxs, M*N+NS, M*N+NS)
+        vecs = ntuple(i->zeros(T, NS + M*N-abs(idxs[i])), length(idxs))
+        A    = spdiagm((Pair(el...) for el in zip(idxs, vecs))...)
         b    = zeros(T, size(A, 1))
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,7 +149,7 @@ function solve_newton!(c::Cache)
     M, N = length(c.dq_newton.u), length(c.dq_newton.u[1])
   
     # solve Newton system in place
-    A_ldiv_B!(lufact(c.A), c.b)
+    ldiv!(lu(c.A), c.b)
 
     # now copy to dq_newton
     for i in 1:M
@@ -167,10 +169,10 @@ function solve_cauchy!(q::PeriodicOrbit, c::Cache)
 
     # Get gradient of mean square residual. This
     # goes at the numerator
-    At_mul_B!(c.grad, c.op, c.res)
+    mul!(c.grad, c.op, c.res, ADJOINT())
 
     # now compute denominator bit
-    A_mul_B!(c.den, c.op, c.grad)
+    mul!(c.den, c.op, c.grad)
 
     # cauchy step length (along the negative gradient)
     λ_c = (norm(c.grad)/norm(c.den))^2

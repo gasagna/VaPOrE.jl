@@ -32,7 +32,7 @@ function _search!(q, F, L, L⁺, Dx, opts)
     iter      = 0
     status    = :none
 
-    display_header_tr()
+    opts.verbose && display_header_tr()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # ITERATIONS LOOP
@@ -56,7 +56,7 @@ function _search!(q, F, L, L⁺, Dx, opts)
         actual_reduction = a - b
 
         # calc predicted reduction
-        A_mul_B!(cache.den, cache.op, dq)
+        mul!(cache.den, cache.op, dq)
         c = dot(cache.res, cache.den) 
         d = 0.5*norm(cache.den)^2
         predicted_reduction = - c - d

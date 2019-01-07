@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------- #
 # Copyright 2017-2018, Davide Lasagna, AFM, University of SouthamUon #
 # ------------------------------------------------------------------- #
+import LinearAlgebra: dot, norm
 
 export StateSpaceLoop, dds!
 
@@ -54,24 +55,44 @@ end
 Base.similar(u::StateSpaceLoop) = StateSpaceLoop(similar.(u._data), order(u))
 Base.copy(u::StateSpaceLoop) = StateSpaceLoop(copy.(u._data), order(u))
 
-Base.dot(u::U, v::U) where {U <: StateSpaceLoop} =
+dot(u::U, v::U) where {U <: StateSpaceLoop} =
     mapreduce(args->dot(args...), +, zip(u, v))/length(u)
 
-Base.norm(u::StateSpaceLoop) = sqrt(dot(u, u))
+norm(u::StateSpaceLoop) = sqrt(dot(u, u))
 
 # ~ BROADCASTING ~
-@generated function Base.Broadcast.broadcast!(f,
-                          u::StateSpaceLoop{M}, args::Vararg{Any, N}) where {M, N}
-    quote
-        $(Expr(:meta, :inline))
-        for i = 1:$M # loop over elements and apply broadcast
-            broadcast!(f, u._data[i],
-                $((args[j] <: StateSpaceLoop ?
-                                  :(args[$j][i]) :
-                                  :(args[$j]) for j = 1:N)...))
-        end
-        return u
+# @generated function Base.Broadcast.broadcast!(f,
+#                           u::StateSpaceLoop{M}, args::Vararg{Any, N}) where {M, N}
+#     quote
+#         $(Expr(:meta, :inline))
+#         for i = 1:$M # loop over elements and apply broadcast
+#             broadcast!(f, u._data[i],
+#                 $((args[j] <: StateSpaceLoop ?
+#                                   :(args[$j][i]) :
+#                                   :(args[$j]) for j = 1:N)...))
+#         end
+#         return u
+#     end
+# end
+
+
+const SSLStyle = Broadcast.ArrayStyle{StateSpaceLoop}
+Base.BroadcastStyle(::Type{<:StateSpaceLoop}) = Broadcast.ArrayStyle{StateSpaceLoop}()
+Base.BroadcastStyle(::Broadcast.ArrayStyle{StateSpaceLoop},
+                    ::Broadcast.DefaultArrayStyle{1}) = Broadcast.DefaultArrayStyle{1}()
+Base.BroadcastStyle(::Broadcast.DefaultArrayStyle{1},
+                    ::Broadcast.ArrayStyle{StateSpaceLoop}) = Broadcast.DefaultArrayStyle{1}()
+
+function Base.copyto!(dest::StateSpaceLoop, bc::Broadcast.Broadcasted{SSLStyle})
+    ret = Broadcast.flatten(bc)
+    return __broadcast!(ret.f, dest, ret.args...)
+end
+
+function __broadcast!(f, A::StateSpaceLoop{M}, Bs::Union{Number, StateSpaceLoop}...) where {M}
+    for i in 1:M
+        broadcast!(f, A._data[i], (typeof(B)<:StateSpaceLoop ? B._data[i] : B for B in Bs)...)
     end
+    return A
 end
 
 # ~ DERIVATIVE APPROXIMATION ~

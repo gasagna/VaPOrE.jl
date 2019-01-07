@@ -15,7 +15,7 @@ function solve_tr_problem!(q::PeriodicOrbit, dq::PeriodicOrbit, cache::Cache, Δ
     # this point, which is hopefully a good descent step
     if norm(cache.dq_newton) < Δ
         dq .= cache.dq_newton
-        return false, :newton, 0.0
+        return false, :newton, 1.0
     end
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
