@@ -33,6 +33,10 @@ dot(q::PO, p::PO) where {PO<:PeriodicOrbit} = dot(q.u, p.u) + sum(q.ds .* p.ds)
 
 norm(q::PeriodicOrbit) = sqrt(dot(q, q))
 
+# change order
+toorder(q::PeriodicOrbit, order::Int) = 
+    PeriodicOrbit(StateSpaceLoop(q.u._data, order), q.ds...)
+
 # ~ BROADCASTING ~
 # @generated function Base.Broadcast.broadcast!(f, q::PeriodicOrbit, args...)
 #     quote 
