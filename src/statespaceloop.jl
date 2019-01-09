@@ -26,12 +26,12 @@ struct StateSpaceLoop{M, ORDER, T,
 end
 
 # build from discrete forward map and initial condition
-function StateSpaceLoop(g, M::Int, x::X) where {X}
+function StateSpaceLoop(g, M::Int, x::X, order::Int) where {X}
     xs = X[copy(x)]
     for i = 1:M-1
         push!(xs, g(copy(xs[end])))
     end
-    return StateSpaceLoop(xs)
+    return StateSpaceLoop(xs, order)
 end
 
 # private
