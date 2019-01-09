@@ -203,8 +203,8 @@ function compute_residual!(c::Cache,
                            α::Real=1) where {M, U<:StateSpaceLoop{M}}
     for i = 1:M
         c.tmp[3] .= q.u[i] .+ α.*dq.u[i]
-        r[i] .=  ((q.ds[1] .+ α.*dq.ds[1]).*(dds!(q.u, i, c.tmp[1]) .+ dds!(dq.u, i, c.tmp[2])
-                    .- c.F(0.0, c.tmp[3], c.tmp[4])))
+        r[i] .=  ( (q.ds[1] .+ α.*dq.ds[1]).*(dds!(q.u, i, c.tmp[1]) .+ α.*dds!(dq.u, i, c.tmp[2]))
+                    .- c.F(0.0, c.tmp[3], c.tmp[4]) )
     end
     return r
 end
