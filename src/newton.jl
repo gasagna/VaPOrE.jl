@@ -79,7 +79,7 @@ function _search!(q, F, L, L⁺, Dx, opts)
             if ρ < 1/4
                 Δ *= 1/4
             elseif ρ > 3/4 && hits_boundary
-                Δ = min(3*Δ, opts.max_Δ)
+                Δ = min(2*Δ, opts.max_Δ)
             end
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
