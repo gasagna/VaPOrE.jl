@@ -5,7 +5,7 @@ import LinearAlgebra: dot, norm
 
 import HDF5: write, h5open, attrs
 
-export PeriodicOrbit, load!, save
+export PeriodicOrbit, load!, save, toorder
 
 # ~ A PERIODIC TRAJECTORY, PLUS FREQUENCY AND RELATIVE VELOCITY ~
 # The parameter U is the space-time function space over which 
