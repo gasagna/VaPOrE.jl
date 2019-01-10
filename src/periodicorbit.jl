@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------- #
 import LinearAlgebra: dot, norm
 
-import HDF5: write, h5open, attrs
+import HDF5: write, h5open, h5readattr, attrs
 
 export PeriodicOrbit, load!, save, toorder
 
@@ -92,7 +92,7 @@ function load!(x::X, fun, path::String) where {X}
         for i = 1:size(data, 2)
             push!(xs, fun(data[:, i]))
         end
-        ds = ntuple(i->attrs(file)["ds_$i"], length(attrs(file)))
-        return PeriodicOrbit(StateSpaceLoop(xs), ds...)
     end
+    atrs = h5readattr(path, "/")
+    return PeriodicOrbit(StateSpaceLoop(xs, 10), [atrs["ds_$i"] for i in 1:length(atrs)]...)
 end
