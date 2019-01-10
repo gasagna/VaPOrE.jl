@@ -6,13 +6,13 @@ export search!
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User API
-# if we have no spatial shift, we can avoid passing Dx
+# if we have no spatial shift, we can avoid passing D
 search!(q::PeriodicOrbit{U, 1}, F, L, L⁺, opts::Options=Options()) where {U} =
     _search!(q, F, L, L⁺, nothing, opts)
 
 # otherwise we have to!
-search!(q::PeriodicOrbit{U, 2}, F, L, L⁺, Dx, opts::Options=Options()) where {U} =
-    _search!(q, F, L, L⁺, Dx, opts)
+search!(q::PeriodicOrbit{U, 2}, F, L, L⁺, D, opts::Options=Options()) where {U} =
+    _search!(q, F, L, L⁺, D, opts)
 
 # catchall
 search!(args...) = 
@@ -20,9 +20,9 @@ search!(args...) =
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Actual implementation
-function _search!(q, F, L, L⁺, Dx, opts)
+function _search!(q, F, L, L⁺, D, opts)
     # allocate cache (does not update it)
-    cache = Cache(q, F, L, L⁺, Dx)
+    cache = Cache(q, F, L, L⁺, D)
 
     # define correction
     dq = similar(q)
