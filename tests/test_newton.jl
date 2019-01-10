@@ -49,10 +49,10 @@ end
     # define initial guess, a slightly perturbed orbit
     M = 50
     ts = range(0, stop=2π, length=M+1)[1:end-1]
-    q = PeriodicOrbit(StateSpaceLoop([1.7*[cos(t), sin(t)] for t in ts], 8), 5);
+    q = PeriodicOrbit(StateSpaceLoop([1.01*[cos(t), sin(t)] for t in ts], 8), 1.01);
 
     # search
-    search!(q, F, D, A, Options(maxiter=15, r_norm_tol=1e-14, verbose=false))
+    search!(q, F, D, A, Options(maxiter=15, init_Δ=0.001, r_norm_tol=1e-14, verbose=false))
 
     # solution is a loop of unit radius and with \omega = 1
     @test maximum( map(el->norm(el)-1, q.u) ) < 1e-10
