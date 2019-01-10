@@ -165,7 +165,7 @@ end
 
 function solve_cauchy!(q::PeriodicOrbit, c::Cache)
     # update residual
-    compute_residual!(c, q)
+    compute_residual!(c, q, c.res)
 
     # Get gradient of mean square residual. This
     # goes at the numerator
