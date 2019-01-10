@@ -121,6 +121,11 @@ function _search!(q, F, L, L⁺, D, opts)
             break
         end
 
+        if step < opts.min_step
+            status = :min_step_reached
+            break
+        end
+
         # update counter
         iter += 1
     end

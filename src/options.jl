@@ -14,6 +14,7 @@ export Options
     verbose::Bool             = true   # print iteration status
     dq_norm_tol::Float64      = 1e-7   # tolerance on initial state correction
     r_norm_tol::Float64       = 1e-7   # tolerance on initial state correction
+    min_step::Float64         = 1e-4   # 
     init_Δ::Float64           = 1      # initial trust region radius
     max_Δ::Float64            = 10^8   #
     η::Float64                = 1/4
