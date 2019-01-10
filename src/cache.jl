@@ -41,7 +41,7 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
             b::Vector{T}               # right hand side for newton iterations
           TMP::Matrix{T}               # temporary matrix to build the lhs
          dmat::Matrix{T}               # differentitation matrix
-          tmp::NTuple{4, X}            # temporaries
+          tmp::NTuple{6, X}            # temporaries
             F::FT                      # the vector field
            op::OPT                     # operator for the cauchy step
           res::U                       # the residual
@@ -60,7 +60,7 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Define temporaries
-        tmp = ntuple(i->similar(q.u[1]), 4)
+        tmp = ntuple(i->similar(q.u[1]), 6)
         TMP = zeros(T, N, N)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -96,7 +96,7 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
     end
 end
 
-function update!(q::PeriodicOrbit, c::Cache)
+function update!(q::PeriodicOrbit{U, NS}, c::Cache) where {U, NS}
     # get problem size
     M, N = length(q.u), length(q.u[1])
 
@@ -114,30 +114,49 @@ function update!(q::PeriodicOrbit, c::Cache)
         end
 
         # clear last rows/cols
-        c.A[end, :] .= 0
-        c.A[:, end] .= 0
+        c.A[(end - NS + 1):end, :] .= 0
+        c.A[:, (end - NS + 1):end] .= 0
         
         for i in 1:M
             rng = _blockrng(i, N)
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # Fill rhs
-            c.A[rng, rng] .= .- op_apply_eye!(c.TMP, c.op.D, q.u[i], c.tmp[1], c.tmp[2])
+            c.A[rng, rng] .= .- op_apply_eye!(c.TMP, c.op.L, q.u[i], c.tmp[1], c.tmp[2])
 
-            # column on the right (term associated to ω')
-            c.A[rng,  end] .= dds!(q.u, i, c.tmp[1])
+            if !(c.op.D isa Nothing)
+                c.A[rng, rng] .+= q.ds[2].*c.dmat
+            end
+
+            # columns on the right (term associated to ω' and c')
+            c.A[rng,  end - NS + 1] .= dds!(q.u, i, c.tmp[1])
+            if !(c.op.D isa Nothing)
+                c.A[rng,  end] .= c.op.D(c.tmp[1], q.u[i])
+            end
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # Set right hand side to negative residual into the b vector
-            c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
-                                     .+ c.F(0.0, q.u[i], c.tmp[2]))
+            if c.op.D isa Nothing
+                c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
+                                         .+ c.F(0.0, q.u[i], c.tmp[2]))
+            else
+                c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
+                             .-q.ds[2].*c.op.D(c.tmp[2], q.u[i])
+                                         .+ c.F(0.0, q.u[i], c.tmp[3]))
+            end
         end
 
-        c.b[end] = 0
+        c.b[end - NS + 1] = 0
+        if !(c.op.D isa Nothing)
+            c.b[end] = 0
+        end
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Include phase locking constraints
-        c.A[end, _blockrng(1, N)] .= c.F(0.0, q.u[1], c.tmp[1])
+        c.A[end - NS + 1, _blockrng(1, N)] .= c.F(0.0, q.u[1], c.tmp[1])
+        if !(c.op.D isa Nothing)
+            c.A[end, _blockrng(1, N)] .= c.op.D(c.tmp[1], q.u[1])
+        end
     end
 
     return nothing
@@ -187,24 +206,42 @@ end
 function compute_residual!(c::Cache,
                            q::PeriodicOrbit{U}, 
                            r::StateSpaceLoop{M}) where {M, U<:StateSpaceLoop{M}}
-    for i = 1:M
-        r[i] .=  (q.ds[1].*dds!(q.u, i, c.tmp[1]) .- c.F(0.0, q.u[i], c.tmp[2]))
+    if c.op.D isa Nothing
+        for i = 1:M
+            r[i] .= (q.ds[1].*dds!(q.u, i, c.tmp[1])
+                  .- c.F(0.0, q.u[i], c.tmp[2]))
+        end
+    else
+        for i = 1:M
+            r[i] .= (q.ds[1].*dds!(q.u, i, c.tmp[1])
+                   .+q.ds[2].*c.op.D(c.tmp[2], q.u[i])
+                   .- c.F(0.0, q.u[i], c.tmp[3]))
+        end
     end
     return r
 end
 
 compute_residual!(c::Cache, q::PeriodicOrbit) = compute_residual!(c, q, c.res)
 
-# Compute the residual vector at 'q + dq'
+# Compute the residual vector at 'q + α*dq'
 function compute_residual!(c::Cache,
                            q::PeriodicOrbit{U},
                           dq::PeriodicOrbit{U},
                            r::StateSpaceLoop{M},
                            α::Real=1) where {M, U<:StateSpaceLoop{M}}
-    for i = 1:M
-        c.tmp[3] .= q.u[i] .+ α.*dq.u[i]
-        r[i] .=  ( (q.ds[1] .+ α.*dq.ds[1]).*(dds!(q.u, i, c.tmp[1]) .+ α.*dds!(dq.u, i, c.tmp[2]))
-                    .- c.F(0.0, c.tmp[3], c.tmp[4]) )
+   if c.op.D isa Nothing
+        for i = 1:M
+            c.tmp[3] .= q.u[i] .+ α.*dq.u[i]
+            r[i] .=  ( (q.ds[1] .+ α.*dq.ds[1]).*(dds!(q.u, i, c.tmp[1]) .+ α.*dds!(dq.u, i, c.tmp[2]))
+                        .- c.F(0.0, c.tmp[3], c.tmp[4]) )
+        end
+    else
+        for i = 1:M
+            c.tmp[5] .= q.u[i] .+ α.*dq.u[i]
+            r[i] .=  ( (q.ds[1] .+ α.*dq.ds[1]).*(dds!(q.u, i, c.tmp[1]) .+ α.*dds!(dq.u, i, c.tmp[2]))
+                    .+ (q.ds[2] .+ α.*dq.ds[2]).*(c.op.D(c.tmp[3], q.u[i]) .+ α.*c.op.D(c.tmp[4], dq.u[i]))
+                    .-  c.F(0.0, c.tmp[5], c.tmp[6]) )
+        end
     end
     return r
 end
