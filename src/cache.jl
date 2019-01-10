@@ -51,7 +51,7 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
     dq_newton::H                       # the newton step
     dq_cauchy::H                       # the cauchy step
          grad::H                       # gradient of mean square residual
-    function Cache(q::H, F, L, L⁺, Dx) where {M, ORDER, T, X, NS,
+    function Cache(q::H, F, L, L⁺, D) where {M, ORDER, T, X, NS,
                              U<:StateSpaceLoop{M, ORDER, T, X},
                              H<:PeriodicOrbit{U, NS}}
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,7 +65,7 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Build operator for Cauchy step calculations
-        op = _Operator(L, L⁺, Dx, q)
+        op = _Operator(L, L⁺, D, q)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Preallocate diagonals of the sparse matrix to speed up filling
@@ -75,9 +75,9 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
         b    = zeros(T, size(A, 1))
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # Precompute differentiation matrix from the operator Dx.
-        # In case Dx is nothing, this is just a no-op
-        dmat = op_apply_eye!(zeros(T, N, N), Dx, tmp[1])
+        # Precompute differentiation matrix from the operator D.
+        # In case D is nothing, this is just a no-op
+        dmat = op_apply_eye!(zeros(T, N, N), D, tmp[1])
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # define other fields

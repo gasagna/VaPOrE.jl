@@ -4,36 +4,36 @@
 import LinearAlgebra
 
 # The operator `J` appearing in the variational approach
-struct _Operator{DT, AT, DXT, X, H}
-    D::DT   # linearised system operator
+struct _Operator{LT, AT, DXT, X, H}
+    L::LT   # linearised system operator
     A::AT   # adjoint of the linearised system operator
-    Dx::DXT # shift operator
+    D::DXT  # derivative operator
     q::H    # current orbit around which linearisation is taken
     tmp::Tuple{X, X, X}
-    _Operator(D, A, Dx, q::H) where {H<:PeriodicOrbit} =
-        new{typeof(D), typeof(A), typeof(Dx),
-            typeof(q.u[1]), H}(D, A, Dx, q, ntuple(i->similar(q.u[1]), 3))
+    _Operator(L, A, D, q::H) where {H<:PeriodicOrbit} =
+        new{typeof(L), typeof(A), typeof(D),
+            typeof(q.u[1]), H}(L, A, D, q, ntuple(i->similar(q.u[1]), 3))
 
-    _Operator(D, A, q::H) where {H<:PeriodicOrbit} =
-        _Operator(D, A, nothing, q::H)
+    _Operator(L, A, q::H) where {H<:PeriodicOrbit} =
+        _Operator(L, A, nothing, q::H)
 end
 
 # Application of the operator
 function LinearAlgebra.mul!(out::U,
-                             op::_Operator{DT, AT, Nothing},
-                              p::PeriodicOrbit{U, 1}) where {DT, AT, M, U<:StateSpaceLoop{M}}
+                             op::_Operator{LT, AT, Nothing},
+                              p::PeriodicOrbit{U, 1}) where {LT, AT, M, U<:StateSpaceLoop{M}}
     for i = 1:M
         out[i] .= (  op.q.ds[1] .* dds!(   p.u, i, op.tmp[1])
                    .+   p.ds[1] .* dds!(op.q.u, i, op.tmp[2])
-                   .- op.D(0.0, op.q.u[i], p.u[i], op.tmp[3]) )
+                   .- op.L(0.0, op.q.u[i], p.u[i], op.tmp[3]) )
     end
     return out
 end
 
 # And of its adjoint
 function LinearAlgebra.mul!(out::PeriodicOrbit{U, 1},
-                             op::_Operator{DT, AT, Nothing},
-                              r::U, ::ADJOINT) where {DT, AT, M, U<:StateSpaceLoop{M}}
+                             op::_Operator{LT, AT, Nothing},
+                              r::U, ::ADJOINT) where {LT, AT, M, U<:StateSpaceLoop{M}}
     # initialise to a zero of appropriate arithmetic type
     ds1 = zero(dot(dds!(op.q.u, 1, op.tmp[2]), r[1])/M)
     for i = 1:M
