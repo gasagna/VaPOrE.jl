@@ -13,25 +13,25 @@ import LinearAlgebra: lu, ldiv!, mul!
 # Apply operator op{u}*v to every column v of the identity matrix 
 function op_apply_eye!(out::Matrix{T},
                        op,
-                       u::X, v::X, tmp::X) where {T, X<:AbstractVector{T}}
-    N = length(v)
-    N == length(u) == length(tmp) == size(out, 1) == size(out, 2) ||
+                       u::X, tmp1::X, tmp2::X) where {T, X<:AbstractVector{T}}
+    N = length(tmp1)
+    N == length(u) == length(tmp2) == size(out, 1) == size(out, 2) ||
         throw(DimensionMismatch("invalid input"))
-    v .= zero(T)
+    tmp1 .= zero(T)
     @inbounds for i = 1:N
-        v[i] = 1
-        out[:, i] .= op(0.0, u, v, tmp)
-        v[i] = 0
+        tmp1[i] = 1
+        out[:, i] .= op(0.0, u, tmp1, tmp2)
+        tmp1[i] = 0
     end
     return out
 end
 
-# Single argument, when op does accept only one argument (e.g. for the derivative)
-op_apply_eye!(out::Matrix{T}, op, tmp::X) where {T, X<:AbstractVector{T}} =
-    op_apply_eye!(out, args->op(args[2]), nothing, tmp)
+# Single argument, when op does not depend on u
+op_apply_eye!(out::Matrix{T}, op, tmp1::X, tmp2::X) where {T, X<:AbstractVector{T}} =
+    op_apply_eye!(out, (args...)->op(args[4], args[3]), tmp1, tmp1, tmp2)
 
 # In case we pass nothing as op, we do nothing
-op_apply_eye!(out::Matrix{T}, op::Nothing, tmp::X) where {T, X<:AbstractVector{T}} = out
+op_apply_eye!(out::Matrix{T}, op::Nothing, tmp1::X, tmp2::X) where {T, X<:AbstractVector{T}} = out
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -77,7 +77,7 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Precompute differentiation matrix from the operator D.
         # In case D is nothing, this is just a no-op
-        dmat = op_apply_eye!(zeros(T, N, N), D, tmp[1])
+        dmat = op_apply_eye!(zeros(T, N, N), D, tmp[1], tmp[2])
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # define other fields
