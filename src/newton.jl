@@ -95,7 +95,7 @@ function _search!(q, F, L, L⁺, D, opts)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Print output
-        if opts.verbose
+        if opts.verbose && iter % opts.skipiter == 0
             compute_residual!(cache, q, cache.res)
             display_status_tr(iter, which, step, norm(cache.res), ρ, Δ, norm(dq), dq.ds[1], q.ds[1])
         end
