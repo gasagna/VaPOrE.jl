@@ -17,5 +17,5 @@ export Options
     min_step::Float64         = 1e-4   # 
     init_Δ::Float64           = 1      # initial trust region radius
     max_Δ::Float64            = 10^8   #
-    η::Float64                = 1/4
+    η::Float64                = 0
 end
