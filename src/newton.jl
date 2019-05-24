@@ -130,5 +130,11 @@ function _search!(q, F, L, L⁺, D, opts)
         iter += 1
     end
 
+    # print status upon exiting
+    if opts.verbose 
+        compute_residual!(cache, q, cache.res)
+        display_status_tr(iter, "exit  ", 0.0, norm(cache.res), 0, Δ, norm(dq), dq.ds[1], q.ds[1])
+    end
+
     return q, status
 end
