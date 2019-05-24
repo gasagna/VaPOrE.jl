@@ -1,0 +1,6 @@
+name = "VaPOrE"
+uuid = "984f5f5c-9f2b-5ba2-a1e0-361201e8a638"
+authors = ["Davide Lasagna <davide.lasagna@soton.ac.uk>"]
+version = "0.0.0"
+
+[deps]
