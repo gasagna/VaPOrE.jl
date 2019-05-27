@@ -93,7 +93,9 @@ struct Cache{T, X, FT, OPT, U<:StateSpaceLoop, H<:PeriodicOrbit}
     end
 end
 
-function update!(q::PeriodicOrbit{U, NS}, c::Cache) where {U, NS}
+function update!(q::PeriodicOrbit{U, NS}, 
+                 c::Cache, 
+         build_rhs::Bool=true) where {U, NS}
     # get problem size
     M, N = length(q.u), length(q.u[1])
 
@@ -130,22 +132,27 @@ function update!(q::PeriodicOrbit{U, NS}, c::Cache) where {U, NS}
             if !(c.op.D isa Nothing)
                 c.A[rng,  end] .= c.op.D(c.tmp[1], q.u[i])
             end
-
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            # Set right hand side to negative residual into the b vector
-            if c.op.D isa Nothing
-                c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
-                                         .+ c.F(0.0, q.u[i], c.tmp[2]))
-            else
-                c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
-                             .-q.ds[2].*c.op.D(c.tmp[2], q.u[i])
-                                         .+ c.F(0.0, q.u[i], c.tmp[3]))
-            end
         end
 
-        c.b[end - NS + 1] = 0
-        if !(c.op.D isa Nothing)
-            c.b[end] = 0
+        if build_rhs
+            for i in 1:M
+                rng = _blockrng(i, N)
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                # Set right hand side to negative residual into the b vector
+                if c.op.D isa Nothing
+                    c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
+                                             .+ c.F(0.0, q.u[i], c.tmp[2]))
+                else
+                    c.b[rng] .= (.-q.ds[1].*dds!(q.u, i, c.tmp[1])
+                                 .-q.ds[2].*c.op.D(c.tmp[2], q.u[i])
+                                             .+ c.F(0.0, q.u[i], c.tmp[3]))
+                end
+            end
+
+            c.b[end - NS + 1] = 0
+            if !(c.op.D isa Nothing)
+                c.b[end] = 0
+            end
         end
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
