@@ -7,9 +7,6 @@ import LinearAlgebra: lu, ldiv!, mul!
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES
 
-# global row indices of the i-th block (one-based)
-@inline _blockrng(i::Integer, N::Integer) = ((i-1)*N+1):(i*N)
-
 # Apply operator op{u}*v to every column v of the identity matrix 
 function op_apply_eye!(out::Matrix{T},
                        op,

@@ -10,6 +10,9 @@ struct ADJOINT end
 
 export ADJOINT
 
+# global row indices of the i-th block (one-based)
+@inline _blockrng(i::Integer, N::Integer) = ((i-1)*N+1):(i*N)
+
 include("output.jl")
 include("options.jl")
 include("statespaceloop.jl")
