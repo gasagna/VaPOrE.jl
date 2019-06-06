@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------- #
 import LinearAlgebra: dot, norm
 
-export StateSpaceLoop, dds!
+export StateSpaceLoop, dds!, prolong
 
 # Coefficient for finite difference approximation of the loop derivative
 const _FDCOEFFS = Dict{Int, Vector{Float64}}()
@@ -36,6 +36,17 @@ end
 
 # private
 order(u::StateSpaceLoop{M, ORDER}) where {M, ORDER} = ORDER
+
+# Use linear interpolation to prolong a loop TODO: use a better interpolation
+function prolong(x::StateSpaceLoop{M, ORDER}) where {M, ORDER}
+    out = StateSpaceLoop([similar(x[1]) for i = 1:2*M], ORDER)
+    for i = 1:M
+        out[2*i-1] .= x[i]
+        out[2*i]   .= 0.5.*(x[i] .+ x[i+1])
+    end
+    return out
+end
+
 
 # ~ OBEY ABSTRACTVECTOR INTERFACE ~
 @inline Base.@propagate_inbounds function Base.getindex(u::StateSpaceLoop{M},
