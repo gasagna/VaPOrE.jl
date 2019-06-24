@@ -11,10 +11,10 @@
         v = PeriodicOrbit(StateSpaceLoop([[4], [5], [6]], 2), 3.0)
         w = similar(u)
         w .= u .+ 2.0.*v
-        @test w.u[1] == [9]
-        @test w.u[2] == [12]
-        @test w.u[3] == [15]
-        @test w.ds   == (8.0, )
+        @test loop(w)[1] == [9]
+        @test loop(w)[2] == [12]
+        @test loop(w)[3] == [15]
+        @test shifts(w)   == (8.0, )
     end
     @testset "broadcast allocations              " begin
         u = PeriodicOrbit(StateSpaceLoop([[1], [2], [3]], 2), 2.0)

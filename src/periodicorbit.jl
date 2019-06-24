@@ -5,7 +5,7 @@ import LinearAlgebra: dot, norm
 
 import HDF5: write, h5open, h5readattr, attrs
 
-export PeriodicOrbit, load!, save, toorder
+export PeriodicOrbit, load!, save, toorder, loop, shifts
 
 # ~ A PERIODIC TRAJECTORY, PLUS FREQUENCY AND RELATIVE VELOCITY ~
 # The parameter U is the space-time function space over which 
@@ -20,6 +20,10 @@ mutable struct PeriodicOrbit{U<:StateSpaceLoop, NS} <: AbstractVector{Float64}
     PeriodicOrbit(u::U, ω::Real) where {U<:StateSpaceLoop} =
         new{U, 1}(u, (Float64(ω),))
 end
+
+# accessors functions
+loop(q::PeriodicOrbit) = q.u
+shifts(q::PeriodicOrbit) = q.ds
 
 # ~ OBEY ABSTRACTVECTOR INTERFACE ~
 Base.similar(q::PeriodicOrbit) = PeriodicOrbit(similar(q.u), zero.(q.ds)...)
