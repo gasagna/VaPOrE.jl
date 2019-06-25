@@ -58,3 +58,34 @@ end
     @test maximum( map(el->norm(el)-1, q.u) ) < 1e-10
     @test abs(q.ds[1] - 1 ) < 1e-10
 end
+
+@testset "monodromy                              " begin
+    # define system
+    μ = 1.0
+    F = System(μ)
+    D = SystemLinear{false}(μ)
+    A = SystemLinear{true}(μ);
+
+    # define initial guess, a slightly perturbed orbit
+    M = 400
+    ts = range(0, stop=2π, length=M+1)[1:end-1]
+    q = PeriodicOrbit(StateSpaceLoop([1.01*[cos(t), sin(t)] for t in ts], 10), 1.01);
+
+    # search
+    search!(q, F, D, A, Options(maxiter=20, init_Δ=0.001, r_norm_tol=1e-18, verbose=false))
+
+    # get lazy jacobian objects
+    ψ = flow(D, RK4(zeros(2), :TAN), TimeStepFromStorage(0.01))
+    Jop = jacobians(ψ, q, 1)[1]
+    
+    # then fill the jacobian matrix
+    J = zeros(2, 2)
+    J[:, 1] = mul!(zeros(2), Jop, Float64[1, 0])
+    J[:, 2] = mul!(zeros(2), Jop, Float64[0, 1])
+
+    # this is a stable orbit so it's got one neutral multiplier and 
+    # one with magnitude < 1
+    μs = eigvals(J)
+    @test μs[1] < 1
+    @test μs[2] ≈ 1
+end
