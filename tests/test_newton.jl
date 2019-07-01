@@ -76,7 +76,7 @@ end
 
     # get lazy jacobian objects
     ψ = flow(D, RK4(zeros(2), :TAN), TimeStepFromStorage(0.01))
-    Jop = jacobians(ψ, q, 1)[1]
+    Jop = jacobians(ψ, q, 1, 9, false)[1]
     
     # then fill the jacobian matrix
     J = zeros(2, 2)
