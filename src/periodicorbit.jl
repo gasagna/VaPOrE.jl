@@ -29,6 +29,8 @@ shifts(q::PeriodicOrbit) = q.ds
 Base.similar(q::PeriodicOrbit) = PeriodicOrbit(similar(q.u), zero.(q.ds)...)
 Base.copy(q::PeriodicOrbit) = PeriodicOrbit(copy(q.u), copy.(q.ds)...)
 
+Base.getindex(q::PeriodicOrbit, i::Int) = q.u[i]
+
 # these are hacks!
 @inline Base.length(q::PeriodicOrbit) = length(q.u) + length(q.ds)
 @inline Base.size(q::PeriodicOrbit) = (length(q), )
