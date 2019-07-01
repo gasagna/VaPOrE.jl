@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------- #
-# Copyright 2017-2018, Davide Lasagna, AFM, University of SouthamUon #
+# Copyright 2017-2019, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
 import LinearAlgebra: dot, norm
 

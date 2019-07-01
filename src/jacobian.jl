@@ -1,3 +1,6 @@
+# ------------------------------------------------------------------- #
+# Copyright 2017-2019, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 import Flows: samples, AbstractStorage, RAMStorage
 
 export jacobians
