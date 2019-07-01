@@ -32,9 +32,10 @@ end
     ith_span(i::Int, N::Int, T::Real)
 
 Split the interval `(0, T)` in `N` equal sub-intervals and 
-return the `i`-th one as a 2-tuple.
+return the `i`-th one as a 2-tuple. Make sure that the last
+span does not go out of bounds `(0, T)``
 """
-ith_span(i::Int, N::Int, T::Real) =  ((i-1)*T/N, i*T/N)
+ith_span(i::Int, N::Int, T::Real) =  ((i-1)*T/N, min(i*T/N, T))
 
 """
     jacobians(ψ, q::PeriodicOrbit, N::Int)
@@ -46,23 +47,27 @@ the time span `(i-1)*T/N to `i*T/N`, where `T` is the orbit period.
 With `N=1`, one obtains an object that calculates the action of the
 monodromy matrix in a matrix-free fashion.
 """
-function jacobians(ψ, q::PeriodicOrbit, N::Int)
-    # construct cache
-    cache = RAMStorage{Float64, eltype(loop(q))}()
+function jacobians(ψ, q::PeriodicOrbit, N::Int, degree::Int, getcache::Bool=false)
+    cache = makecache(q, N, degree)
+    Js = ntuple(i->JacobianOp(ψ,
+                                cache,
+                                ith_span(i, N, 2π/shifts(q)[1])), N)
+    return getcache == true ? (Js, cache) : Js
+end
 
-    # length of loop
+
+function makecache(q::PeriodicOrbit, N::Int, degree::Int)
+    # period andlength of loop
+    T = 2π/shifts(q)[1]
     M = length(loop(q))
 
-    # and period
-    T = 2π/shifts(q)[1]
+    # init cache
+    cache = RAMStorage(eltype(loop(q)); degree=degree, period=T)
 
-    # push elements to cache including the repeated first element
-    ts = range(0, stop=T, length=M+1)[1:M]
+    # push elements to cache
     for i = 1:M
-        push!(cache, ts[i], loop(q)[i])
+        push!(cache, (i-1)*T/M, loop(q)[i])
     end
-    push!(cache, T, loop(q)[1])
 
-    # return all jacobians
-    return ntuple(i->JacobianOp(ψ, cache, ith_span(i, N, T)), N)
+    return cache
 end
