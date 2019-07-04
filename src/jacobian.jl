@@ -76,7 +76,7 @@ function jacobians(ψ,
                    degree::Int,
                    getcache::Bool=false,
                    getfull::Bool=false)
-    cache = makecache(q, degree)
+    cache = makestorage(q, degree)
     Js = ntuple(i->LazyJacobianOp(ψ,
                                   cache,
                                   ith_span(i, N, 2π/shifts(q)[1])), N)
@@ -87,7 +87,7 @@ function jacobians(ψ,
 end
 
 
-function makecache(q::PeriodicOrbit, N::Int, degree::Int)
+function makestorage(q::PeriodicOrbit, degree::Int)
     # period andlength of loop
     T = 2π/shifts(q)[1]
     M = length(loop(q))
