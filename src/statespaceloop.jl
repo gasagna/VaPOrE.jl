@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------- #
 import LinearAlgebra: dot, norm
 
-export StateSpaceLoop, dds!, prolong
+export StateSpaceLoop, dds!, prolong, restrict, order
 
 # Coefficient for finite difference approximation of the loop derivative
 const _FDCOEFFS = Dict{Int, Vector{Float64}}()
@@ -47,6 +47,10 @@ function prolong(x::StateSpaceLoop{M, ORDER}) where {M, ORDER}
     return out
 end
 
+function restrict(x::StateSpaceLoop{M, ORDER}) where {M, ORDER}
+    M % 2 == 0 || throw(ArgumentError("loop length must be even"))
+    return StateSpaceLoop(x._data[1:2:end], ORDER)
+end
 
 # ~ OBEY ABSTRACTVECTOR INTERFACE ~
 @inline Base.@propagate_inbounds function Base.getindex(u::StateSpaceLoop{M},

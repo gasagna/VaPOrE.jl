@@ -8,6 +8,7 @@ using LinearAlgebra
     end
     @testset "periodic indexing                  " begin
         u = StateSpaceLoop([[1], [2], [3]], 2)
+        @test order(u) == 2
         @test u[-1] == [2]  
         @test u[ 0] == [3]
         @test u[ 1] == [1]
@@ -17,7 +18,7 @@ using LinearAlgebra
         u[4] .= [4]
         @test u[1] == [4]
     end
-    @testset "prolong                            " begin
+    @testset "prolong & restrict                 " begin
         v = StateSpaceLoop([[1.0], [2.0], [3.0]], 2)
         u = prolong(v)
         @test u[ 1] == [1]
@@ -26,6 +27,9 @@ using LinearAlgebra
         @test u[ 4] == [2.5]
         @test u[ 5] == [3]
         @test u[ 6] == [2]
+        w = restrict(u)
+        @test w == v
+        @test_throws ArgumentError restrict(v)
     end
     @testset "norm, dot                          " begin
         u = StateSpaceLoop([[1], [2], [3]], 2)
