@@ -74,15 +74,10 @@ end
     # search
     search!(q, F, D, A, Options(maxiter=20, init_Δ=0.001, r_norm_tol=1e-18, verbose=false))
 
-    # get lazy jacobian objects
+    # get monodromy matrix
     ψ = flow(D, RK4(zeros(2), :TAN), TimeStepFromStorage(0.01))
-    Jop = jacobians(ψ, q, 1, 9, false)[1]
+    J = jacobians(ψ, q, 1, 9, false, true)[1]
     
-    # then fill the jacobian matrix
-    J = zeros(2, 2)
-    J[:, 1] = mul!(zeros(2), Jop, Float64[1, 0])
-    J[:, 2] = mul!(zeros(2), Jop, Float64[0, 1])
-
     # this is a stable orbit so it's got one neutral multiplier and 
     # one with magnitude < 1
     μs = eigvals(J)
