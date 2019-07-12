@@ -88,10 +88,11 @@ function save(q::PeriodicOrbit, path::String)
         for i = 1:length(q.ds)
             attrs(file)["ds_$i"] = q.ds[i]
         end
+        attrs(file)["order"] = order(loop(q))
     end
 end
 
-function load!(x::X, fun, path::String) where {X}
+function load!(x::X, fun, path::String; defaultorder::Int=10) where {X}
     xs = X[]
     h5open(path, "r") do file
         data = read(file, "q")
@@ -100,5 +101,6 @@ function load!(x::X, fun, path::String) where {X}
         end
     end
     atrs = h5readattr(path, "/")
-    return PeriodicOrbit(StateSpaceLoop(xs, 10), [atrs["ds_$i"] for i in 1:length(atrs)]...)
+    order = "order" in keys(atrs) ? atrs["order"] : defaultorder
+    return PeriodicOrbit(StateSpaceLoop(xs, order), [atrs["ds_$i"] for i in 1:length(atrs)]...)
 end
