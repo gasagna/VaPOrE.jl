@@ -75,7 +75,7 @@ function _search!(q, F, L, L⁺, D, opts)
         # we simply assume that the newton direction will be a good pick.
         # See "A note on robust descent in differentiable optimization"
         # from "Jean-Pierre Dussault"
-        if sqrt(a) > 1e-7
+        if sqrt(a) > 1e-8
             if ρ < 1/4
                 Δ *= 1/4
             elseif ρ > 3/4 && hits_boundary
