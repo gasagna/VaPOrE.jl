@@ -48,8 +48,8 @@ using LinearAlgebra
         u = StateSpaceLoop([randn(100) for i = 1:500], 2)
         v = StateSpaceLoop([randn(100) for i = 1:500], 2)
         w = similar(u)
-        foo(u, v, w) = (@allocated w .= u .+ 2.0.*v)
-        # @test foo(u, v, w) == 0
+        foo(u, v, w) = (@allocated w .= u .+ 2.0.*v .- 1.0.*u)
+        @test foo(u, v, w) == 0
     end
     @testset "loop derivative                    " begin
         # differentiate cos(t)

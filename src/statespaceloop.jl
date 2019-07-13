@@ -76,39 +76,27 @@ dot(u::U, v::U) where {U <: StateSpaceLoop} =
 norm(u::StateSpaceLoop) = sqrt(dot(u, u))
 
 # ~ BROADCASTING ~
-# @generated function Base.Broadcast.broadcast!(f,
-#                           u::StateSpaceLoop{M}, args::Vararg{Any, N}) where {M, N}
-#     quote
-#         $(Expr(:meta, :inline))
-#         for i = 1:$M # loop over elements and apply broadcast
-#             broadcast!(f, u._data[i],
-#                 $((args[j] <: StateSpaceLoop ?
-#                                   :(args[$j][i]) :
-#                                   :(args[$j]) for j = 1:N)...))
-#         end
-#         return u
-#     end
-# end
-
-
+# taken from MultiscaleArrays.jl
 const SSLStyle = Broadcast.ArrayStyle{StateSpaceLoop}
 Base.BroadcastStyle(::Type{<:StateSpaceLoop}) = Broadcast.ArrayStyle{StateSpaceLoop}()
-Base.BroadcastStyle(::Broadcast.ArrayStyle{StateSpaceLoop},
-                    ::Broadcast.DefaultArrayStyle{1}) = Broadcast.DefaultArrayStyle{1}()
-Base.BroadcastStyle(::Broadcast.DefaultArrayStyle{1},
-                    ::Broadcast.ArrayStyle{StateSpaceLoop}) = Broadcast.DefaultArrayStyle{1}()
 
-function Base.copyto!(dest::StateSpaceLoop, bc::Broadcast.Broadcasted{SSLStyle})
-    ret = Broadcast.flatten(bc)
-    return __broadcast!(ret.f, dest, ret.args...)
-end
-
-function __broadcast!(f, A::StateSpaceLoop{M}, Bs::Union{Number, StateSpaceLoop}...) where {M}
+@inline function Base.copyto!(dest::StateSpaceLoop{M},
+                                bc::Broadcast.Broadcasted{SSLStyle}) where {M}
     for i in 1:M
-        broadcast!(f, A._data[i], (typeof(B)<:StateSpaceLoop ? B._data[i] : B for B in Bs)...)
+        copyto!(dest._data[i], unpack(bc, i))
     end
-    return A
+    return dest
 end
+
+@inline unpack(bc::Broadcast.Broadcasted, i) =
+    Broadcast.Broadcasted(bc.f, unpack_args(i, bc.args))
+@inline unpack(x, ::Any) = x
+@inline unpack(x::StateSpaceLoop, i) = x._data[i]
+
+@inline unpack_args(i, args::Tuple) = 
+    (unpack(args[1], i), unpack_args(i, Base.tail(args))...)
+@inline unpack_args(i, args::Tuple{Any}) = (unpack(args[1], i),)
+@inline unpack_args(::Any, args::Tuple{}) = ()
 
 # ~ DERIVATIVE APPROXIMATION ~
 # @generated function dds!(u::StateSpaceLoop{M, ORDER, T, X},
