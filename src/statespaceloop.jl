@@ -83,20 +83,20 @@ Base.BroadcastStyle(::Type{<:StateSpaceLoop}) = Broadcast.ArrayStyle{StateSpaceL
 @inline function Base.copyto!(dest::StateSpaceLoop{M},
                                 bc::Broadcast.Broadcasted{SSLStyle}) where {M}
     for i in 1:M
-        copyto!(dest._data[i], unpack(bc, i))
+        copyto!(dest._data[i], ssl_unpack(bc, i))
     end
     return dest
 end
 
-@inline unpack(bc::Broadcast.Broadcasted, i) =
-    Broadcast.Broadcasted(bc.f, unpack_args(i, bc.args))
-@inline unpack(x, ::Any) = x
-@inline unpack(x::StateSpaceLoop, i) = x._data[i]
+@inline ssl_unpack(bc::Broadcast.Broadcasted, i) =
+    Broadcast.Broadcasted(bc.f, _ssl_unpack(i, bc.args))
+@inline ssl_unpack(x, ::Any) = x
+@inline ssl_unpack(x::StateSpaceLoop, i) = x._data[i]
 
-@inline unpack_args(i, args::Tuple) = 
-    (unpack(args[1], i), unpack_args(i, Base.tail(args))...)
-@inline unpack_args(i, args::Tuple{Any}) = (unpack(args[1], i),)
-@inline unpack_args(::Any, args::Tuple{}) = ()
+@inline _ssl_unpack(i, args::Tuple) = 
+    (ssl_unpack(args[1], i), _ssl_unpack(i, Base.tail(args))...)
+@inline _ssl_unpack(i, args::Tuple{Any}) = (ssl_unpack(args[1], i),)
+@inline _ssl_unpack(::Any, args::Tuple{}) = ()
 
 # ~ DERIVATIVE APPROXIMATION ~
 @generated function dds!(u::StateSpaceLoop{M, ORDER, T, X},

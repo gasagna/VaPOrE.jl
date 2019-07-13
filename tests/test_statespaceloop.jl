@@ -1,7 +1,3 @@
-using Test
-using VaPOrE
-using LinearAlgebra
-
 @testset "StateSpaceLoop                         " begin
     @testset "constructor                        " begin
         @test_throws ArgumentError StateSpaceLoop([[1], [2], [3]], 1)

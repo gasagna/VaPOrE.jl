@@ -44,37 +44,27 @@ toorder(q::PeriodicOrbit, order::Int) =
     PeriodicOrbit(StateSpaceLoop(q.u._data, order), q.ds...)
 
 # ~ BROADCASTING ~
-# @generated function Base.Broadcast.broadcast!(f, q::PeriodicOrbit, args...)
-#     quote 
-#         $(Expr(:meta, :inline))
-#         broadcast!(f, q.u,  map(_get_u, args)...)
-#         q.ds = broadcast(f, map(_get_ds, args)...)
-#         return q
-#     end
-# end
-
-# _get_u(q::PeriodicOrbit) = q.u; _get_u(q) = q
-# _get_ds(q::PeriodicOrbit) = q.ds; _get_ds(q) = q
-
 const POStyle = Broadcast.ArrayStyle{PeriodicOrbit}
 Base.BroadcastStyle(::Type{<:PeriodicOrbit}) = Broadcast.ArrayStyle{PeriodicOrbit}()
-Base.BroadcastStyle(::Broadcast.ArrayStyle{PeriodicOrbit},
-                    ::Broadcast.DefaultArrayStyle{1}) = Broadcast.DefaultArrayStyle{1}()
-Base.BroadcastStyle(::Broadcast.DefaultArrayStyle{1},
-                    ::Broadcast.ArrayStyle{PeriodicOrbit}) = Broadcast.DefaultArrayStyle{1}()
-Base.similar(bc::Broadcast.Broadcasted{Broadcast.ArrayStyle{PeriodicOrbit}},
-               ::Type{E}) where E = similar(bc)
 
-function Base.copyto!(dest::PeriodicOrbit, bc::Broadcast.Broadcasted{POStyle})
-    ret = Broadcast.flatten(bc)
-    return __broadcast!(ret.f, dest, ret.args...)
+@inline function Base.copyto!(dest::PeriodicOrbit,
+                                bc::Broadcast.Broadcasted{POStyle})
+    copyto!(loop(dest), po_unpack(bc, Val(:loop)))
+    dest.ds = broadcast(bc.f, po_unpack(bc, Val(:shifts)))
+    return dest
 end
 
-function __broadcast!(f, A::PeriodicOrbit, Bs::Union{Number, PeriodicOrbit}...)
-    broadcast!(f, A.u,  (typeof(B)<:PeriodicOrbit ? B.u  : B for B in Bs)...)
-    A.ds = broadcast(f, (typeof(B)<:PeriodicOrbit ? B.ds : B for B in Bs)...)
-    return A
-end
+@inline po_unpack(bc::Broadcast.Broadcasted, item::Val) =
+    Broadcast.Broadcasted(bc.f, _po_unpack(bc.args, item))
+
+@inline po_unpack(x::PeriodicOrbit, ::Val{:loop})   = loop(x)
+@inline po_unpack(x::PeriodicOrbit, ::Val{:shifts}) = shifts(x)
+@inline po_unpack(x::Any, ::Val) = x
+
+@inline _po_unpack(args::Tuple, item) = 
+    (po_unpack(args[1], item), _po_unpack(Base.tail(args), item)...)
+@inline _po_unpack(args::Tuple{Any}, item) = (po_unpack(args[1], item),)
+@inline _po_unpack(args::Tuple{}, item) = ()
 
 # ~ HDF5 IO ~
 function save(q::PeriodicOrbit, path::String)
