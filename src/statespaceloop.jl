@@ -99,23 +99,14 @@ end
 @inline unpack_args(::Any, args::Tuple{}) = ()
 
 # ~ DERIVATIVE APPROXIMATION ~
-# @generated function dds!(u::StateSpaceLoop{M, ORDER, T, X},
-#                                          i::Int, duds::X) where {T, X, M, ORDER}
-#     ex = quote duds .= 0 end
-#     for (j, c) in enumerate(_FDCOEFFS[ORDER])
-#         push!(ex.args, :(duds .+= $c.*u[i+$j] .- $c.*u[i-$j]))
-#     end
-#     push!(ex.args, :(duds .*= $(M/2π)))
-#     push!(ex.args, :(return duds))
-#     return ex
-# end
-
-function dds!(u::StateSpaceLoop{M, ORDER, T, X},
-                                         i::Int, duds::X) where {T, X, M, ORDER}
-    duds .= 0
+@generated function dds!(u::StateSpaceLoop{M, ORDER, T, X},
+                         i::Int, 
+                      duds::X) where {T, X, M, ORDER}
+    ex = quote duds .= 0 end
     for (j, c) in enumerate(_FDCOEFFS[ORDER])
-        duds .+= c.*u[i+j] .- c.*u[i-j]
+        push!(ex.args, :(duds .+= $c.*u[i+$j] .- $c.*u[i-$j]))
     end
-    duds .*= M/2π
-    return duds
+    push!(ex.args, :(duds .*= $(M/2π)))
+    push!(ex.args, :(return duds))
+    return ex
 end
