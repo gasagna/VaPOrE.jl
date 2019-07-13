@@ -102,5 +102,6 @@ function load!(x::X, fun, path::String; defaultorder::Int=10) where {X}
     end
     atrs = h5readattr(path, "/")
     order = "order" in keys(atrs) ? atrs["order"] : defaultorder
-    return PeriodicOrbit(StateSpaceLoop(xs, order), [atrs["ds_$i"] for i in 1:length(atrs)]...)
+    nshifts = "ds_2" in keys(atrs) ? 2 : 1
+    return PeriodicOrbit(StateSpaceLoop(xs, order), [atrs["ds_$i"] for i in 1:nshifts]...)
 end
