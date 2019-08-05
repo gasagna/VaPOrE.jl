@@ -34,6 +34,15 @@ function _search!(q, F, L, L⁺, D, opts)
 
     opts.verbose && display_header_tr()
 
+    # init residual history
+    res_history = Float64[]
+
+    # compute residual
+    compute_residual!(cache, q, cache.res)
+
+    # store residual
+    push!(res_history, norm(cache.res))
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # ITERATIONS LOOP
     while true
@@ -75,6 +84,12 @@ function _search!(q, F, L, L⁺, D, opts)
         # we simply assume that the newton direction will be a good pick.
         # See "A note on robust descent in differentiable optimization"
         # from "Jean-Pierre Dussault"
+        # println(a)
+        # println(b)
+        # println(actual_reduction)
+        # println(predicted_reduction)
+        # println(ρ, "\n")
+
         if sqrt(a) > 1e-8
             if ρ < 1/4
                 Δ *= 1/4
@@ -93,11 +108,16 @@ function _search!(q, F, L, L⁺, D, opts)
             q .= q .+ dq
         end
 
+        # compute residual
+        compute_residual!(cache, q, cache.res)
+
+        # store residual
+        push!(res_history, norm(cache.res))
+
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Print output
         if opts.verbose && iter % opts.skipiter == 0
-            compute_residual!(cache, q, cache.res)
-            display_status_tr(iter, which, step, norm(cache.res), ρ, Δ, norm(dq), dq.ds[1], q.ds[1])
+            display_status_tr(iter, which, step, res_history[end], ρ, Δ, norm(dq), dq.ds[1], q.ds[1])
         end
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -133,8 +153,8 @@ function _search!(q, F, L, L⁺, D, opts)
     # print status upon exiting
     if opts.verbose 
         compute_residual!(cache, q, cache.res)
-        display_status_tr(iter, "exit  ", 0.0, norm(cache.res), 0, Δ, norm(dq), dq.ds[1], q.ds[1])
+        display_status_tr(iter, "exit  ", 0.0, res_history[end], 0, Δ, norm(dq), dq.ds[1], q.ds[1])
     end
 
-    return q, status
+    return q, status, res_history
 end
