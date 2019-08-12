@@ -23,5 +23,6 @@ include("cache.jl")
 include("dogleg.jl")
 include("newton.jl")
 include("jacobian.jl")
+include("sensitivity.jl")
 
 end
