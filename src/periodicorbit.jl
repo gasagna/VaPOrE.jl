@@ -54,6 +54,12 @@ Base.BroadcastStyle(::Type{<:PeriodicOrbit}) = Broadcast.ArrayStyle{PeriodicOrbi
     return dest
 end
 
+@inline function Base.copyto!(dest::PeriodicOrbit, src::PeriodicOrbit)
+    copyto!(loop(dest), loop(src))
+    dest.ds = src.ds
+    return dest
+end
+
 @inline po_unpack(bc::Broadcast.Broadcasted, item::Val) =
     Broadcast.Broadcasted(bc.f, _po_unpack(bc.args, item))
 

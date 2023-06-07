@@ -88,6 +88,14 @@ Base.BroadcastStyle(::Type{<:StateSpaceLoop}) = Broadcast.ArrayStyle{StateSpaceL
     return dest
 end
 
+@inline function Base.copyto!(dest::StateSpaceLoop{M},
+                               src::StateSpaceLoop{M}) where {M}
+    for i in 1:M
+        copyto!(dest._data[i], src._data[i])
+    end
+    return dest
+end
+
 @inline ssl_unpack(bc::Broadcast.Broadcasted, i) =
     Broadcast.Broadcasted(bc.f, _ssl_unpack(i, bc.args))
 @inline ssl_unpack(x, ::Any) = x
